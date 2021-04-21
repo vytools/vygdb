@@ -1,7 +1,7 @@
 from vygdb.server import server
 from vygdb.gdb_client import gdb_client
 
-__version__ = "0.0.2"
+__version__ = "1.0.0"
 
 # kwargs={'cwd':'/home/nate/misc/other/SeeAndStop/build/src/GeometryCore/'},
 # cmd = ['see_and_stop_vis_test', 'testobject.json', 'out.json']
