@@ -1,0 +1,54 @@
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/natebu/jsutilities/flex.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css" integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ace.js" defer></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/natebu/jsutilities/flex.js" defer></script>
+    <style>
+      .full { width:100%; height:100% }
+      .ace-editor, .ace-editor * {
+        font-family:monospace !important;
+        font: inherit !important
+      }
+    </style>
+    <script type="module" src="/vy/vygdb/main.js" defer></script>
+  </head>
+
+  <body>
+    <div style="position:absolute;width:100%;height:100%;background-color: whitesmoke;">
+      <flex class="h full">
+        <flex class="v full" style="flex: 1;">
+          <flexitem class="full" style="flex: 2;">
+            <div id="vygdbeditor" style="width:100%;height:calc(100% - 40px);overflow:auto">
+            </div>
+            <div class="input-group" style="width:100%;z-index: 0">
+              <div class="input-group-prepend">
+                <button class="btn btn-outline-secondary" onclick="step_into()" title="step-into (F9)"><i class="fa fa-level-down-alt"></i></button>
+                <button class="btn btn-outline-secondary" onclick="step_over()" title="step-over (F10)"><i class="fa fa-angle-right"></i></button>
+                <button class="btn btn-outline-secondary" onclick="step_run()" title="run (F5)"><i class="fa fa-angle-double-right"></i></button>
+              </div>
+              <input id="vygdbcommand" type="text" class="form-control" style="height:40px;border-radius: 0 !important;"/>
+              <div class="input-group-append">
+                <button class="btn btn-outline-secondary" onclick="restart()" title="restart"><i class="fa fa-level-down-alt"></i></button>
+              </div>
+            </div>
+          </flexitem>
+          <flexresizer></flexresizer>
+          <flexitem class="full" style="flex: 1;">
+            <div id="vygdblog" class="full"></div>
+            <i style="position:absolute;left:7px;bottom:8px;z-index: 1000;"
+                onclick="LOG.setValue('');"
+                class="logs fa fa-trash fa-inverse"></i>
+          </flexitem>
+        </flex>
+        <flexresizer></flexresizer>
+        <flexitem class="full content" style="flex: 1; background-color: whitesmoke;"></flexitem>
+      </flex>
+    </div>
+  </body>
+
+</html>
+

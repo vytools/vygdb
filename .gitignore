@@ -1,0 +1,10 @@
+
+.eggs/
+
+build/
+
+dist/
+
+vygdb.egg-info/
+
+vygdb/__pycache__/
