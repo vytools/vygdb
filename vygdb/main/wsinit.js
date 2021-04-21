@@ -38,7 +38,7 @@ export function initWebsocket(url, existingWebsocket, timeoutMs, numberOfRetries
             websocket.onclose = function (ev) {
                 console.info('websocket closed! url: ' + url);
                 rejectInternal();
-                onClose(ev);
+                if (onClose) onClose(ev);
             };
             websocket.onerror = function () {
                 console.info('websocket error! url: ' + url);

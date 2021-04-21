@@ -22,17 +22,6 @@ function addLogText(text) {
   LOG.session.insert({row: LOG.session.getLength(), column: 0}, "\n" + text);
 }
 
-const post_fetch = function(addr,d,cb) {
-  fetch(addr, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(d),
-  })
-  .then(data=>{return data.json()})
-  .then(res=>{ if (cb) cb(res); })
-  .catch(error=>{  console.error(addr,error); })
-}
-
 const set_current_file = function(fname, line) {
   if (fname !== CURRENT_FILENAME) {
     if (FILES.hasOwnProperty(fname)) {
@@ -84,19 +73,23 @@ const onClose = function(ev) {
   addLogText('Socket closed.');
 }
 
+let LASTTIMEOUT = null;
 const tryconnect = function() {
   if (SOCKET && SOCKET.readyState === WebSocket.OPEN) {
     addLogText('Already connected.');
     return;
   }
-  addLogText('Attempting to connect...');
-  initWebsocket(VYGDBADDR, null, 500, 1, vygdb_recv, onClose).then(function(socket) { // 500 msec timeout and 1 retry
-    SOCKET = socket;
-    RESTARTBUTTON.classList.remove('btn-danger');
-    addLogText('Connected.');
-  }).catch(function(err) {
-    addLogText('Connection error: '+err);
-  });  
+  addLogText('Attempting to connect (in 3 seconds) ...');
+  if (LASTTIMEOUT) clearTimeout(LASTTIMEOUT);
+  LASTTIMEOUT = setTimeout(() => {
+    initWebsocket(VYGDBADDR, SOCKET, 500, 1, vygdb_recv, onClose).then(function(socket) { // 500 msec timeout and 1 retry
+      SOCKET = socket;
+      RESTARTBUTTON.classList.remove('btn-danger');
+      addLogText('Connected.');
+    }).catch(function(err) {
+      addLogText('Connection error: '+err);
+    });
+  }, 3000);  
 }
 
 vygdbcommand.addEventListener('keydown',function(event) {
@@ -140,7 +133,7 @@ vygdbcommand.addEventListener('keydown',function(event) {
 window.step_over = () => { vygdb_send({topic:'vygdb',command:'n'}); }
 window.step_into = () => { vygdb_send({topic:'vygdb',command:'s'}); }
 window.step_run = () => { vygdb_send({topic:'vygdb',command:'c'}); }
-window.restart = () => { post_fetch('/start_gdb',{}, tryconnect); }
+window.restart = () => { fetch('/start_gdb').then(tryconnect); }
 
 EDITOR = ace.edit(vygdbdiv);
 EDITOR.setTheme("ace/theme/twilight");

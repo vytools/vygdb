@@ -27,7 +27,7 @@ setuptools.setup(name='vygdb',
     python_requires='>=3.6',
     packages=setuptools.find_packages(),
     package_data = {'vygdb': ['main/*']},
-    install_requires=['sanic'],
+    install_requires=['websockets'],
     entry_points={
         'console_scripts':[
             'vygdb=vygdb:_commandline'

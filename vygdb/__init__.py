@@ -7,7 +7,7 @@ __version__ = "0.0.2"
 # cmd = ['see_and_stop_vis_test', 'testobject.json', 'out.json']
 
 def _commandline():
-  import argparse, shlex
+  import argparse, shlex, os, logging
   parser = argparse.ArgumentParser(prog='vytools', description='tools for working with vy')
   parser.add_argument('--version','-v', action='store_true', help='Print version')
   parser.add_argument('--port', type=int, default=17173, help='server port number')
@@ -28,10 +28,12 @@ def _commandline():
   if 'static' in dir(args):
     for arg in args.static:
       if '=' not in arg:
-        logging.error('A --static -s ({a}) failed to be in the form Folder=Path'.format(s=typ,a=arg))
+        logging.error('A (--static -s) directory "{}" failed to be in the form Folder=Path'.format(arg))
         return
       else:
         (k,v) = arg.split('=',1)
+        if not os.path.isdir(v):
+          logging.error('"{}" is not a valid directory'.format(v))
+          return
         static[k] = v
-  print(static)
-  server(port=args.port, static=static, cmd=shlex.split(args.cmd))
+  server(shlex.split(args.cmd), port=args.port, static=static)
