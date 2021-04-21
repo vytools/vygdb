@@ -13,8 +13,11 @@
         font-family:monospace !important;
         font: inherit !important
       }
+      button.btn {
+        border-radius: 0 !important;
+      }
     </style>
-    <script type="module" src="/vy/vygdb/main.js" defer></script>
+    <script type="module" src="/vygdb/main.js" defer></script>
   </head>
 
   <body>
@@ -32,7 +35,7 @@
               </div>
               <input id="vygdbcommand" type="text" class="form-control" style="height:40px;border-radius: 0 !important;"/>
               <div class="input-group-append">
-                <button class="btn btn-outline-secondary" onclick="restart()" title="restart"><i class="fa fa-level-down-alt"></i></button>
+                <button class="btn btn-outline-secondary btn-danger restart" onclick="restart()" title="restart"><i class="fa fa-redo"></i></button>
               </div>
             </div>
           </flexitem>

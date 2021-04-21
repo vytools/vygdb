@@ -1,3 +1,4 @@
+import { initWebsocket } from "./wsinit.js";
 import { initializer, handler } from "/top/handler.js";
 
 let EDITOR = null
@@ -74,23 +75,29 @@ export function vygdb_recv(msg) {
   }
 }
 
-let tryconnect = function() {
-  if (SOCKET && SOCKET.readyState !== WebSocket.CLOSED) return;
-  try {
-    addLogText('Socket closed. Trying to [re]connect to '+VYGDBADDR)
-    SOCKET = new WebSocket(VYGDBADDR);
-    if (SOCKET) {
-      SOCKET.onopen = (ev) => { addLogText('Socket opened.'); }
-      SOCKET.onclose = (ev) => { setTimeout(tryconnect, 3000); }
-      SOCKET.onmessage = vygdb_recv;
-      return;
-    }
-  } catch (err) {
-    addLogText('Failed to connect to '+VYGDBADDR+' '+err);
-  }
-  setTimeout(tryconnect, 1000);
+let RESTARTBUTTON = document.querySelector('button.restart');
+
+const onClose = function(ev) {
+  RESTARTBUTTON.classList.add('btn-danger');
+  EDITOR.setValue("");
+  EDITOR.clearSelection();  
+  addLogText('Socket closed.');
 }
-setTimeout(tryconnect, 1000)
+
+const tryconnect = function() {
+  if (SOCKET && SOCKET.readyState === WebSocket.OPEN) {
+    addLogText('Already connected.');
+    return;
+  }
+  addLogText('Attempting to connect...');
+  initWebsocket(VYGDBADDR, null, 500, 1, vygdb_recv, onClose).then(function(socket) { // 500 msec timeout and 1 retry
+    SOCKET = socket;
+    RESTARTBUTTON.classList.remove('btn-danger');
+    addLogText('Connected.');
+  }).catch(function(err) {
+    addLogText('Connection error: '+err);
+  });  
+}
 
 vygdbcommand.addEventListener('keydown',function(event) {
 
@@ -133,7 +140,7 @@ vygdbcommand.addEventListener('keydown',function(event) {
 window.step_over = () => { vygdb_send({topic:'vygdb',command:'n'}); }
 window.step_into = () => { vygdb_send({topic:'vygdb',command:'s'}); }
 window.step_run = () => { vygdb_send({topic:'vygdb',command:'c'}); }
-window.restart = () => { post_fetch('/start_gdb',{}); }
+window.restart = () => { post_fetch('/start_gdb',{}, tryconnect); }
 
 EDITOR = ace.edit(vygdbdiv);
 EDITOR.setTheme("ace/theme/twilight");

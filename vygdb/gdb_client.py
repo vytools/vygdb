@@ -72,6 +72,7 @@ try:
         sys.stdout.flush()
       
       if stop_:
+        latest_position()
         return True
       elif self.sent:
         global SENT
@@ -365,10 +366,10 @@ def parse_gdb_command(cmd):
   if cmd is not None:
     try:
       cmd = LASTCMD if len(cmd)==0 and LASTCMD is not None else cmd
-      gdb.execute( cmd ) #eval(cmd)
+      gdb.execute( cmd )
       sys.stdout.flush()
       LASTCMD = cmd
-      LASTFILE = latest_position()
+      latest_position()
     except Exception as exc:
       print('vygdb problem executing ',cmd,exc,flush=True)
       sys.exit(101)
@@ -437,7 +438,6 @@ def gdb_client(port=17172):
       data = json.loads(message)
       if data.get('topic',None) == 'vygdb_actions':
         first_response(data)
-        # parse_gdb_command(cmd)
         break
 
     async for message in websocket:
@@ -457,7 +457,7 @@ def gdb_client(port=17172):
       await STREAMER.send(json.dumps(msg))
       if SENT:
         SENT = False
-        parse_gdb_command('c')
+        gdb.execute('c')
 
   host = "0.0.0.0"
   print('Creating vygdb websocket on ws://{h}:{p} ...'.format(h=host,p=port), flush=True)
