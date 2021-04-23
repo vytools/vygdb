@@ -1,3 +1,5 @@
-FROM scratch as ${VYNAME}
+FROM scratch 
 COPY . .
-#vy {"context":"..","source":{"scratch":""}}
+
+#VY CONTEXT ..
+#VY SOURCE scratch
