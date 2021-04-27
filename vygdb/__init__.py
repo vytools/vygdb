@@ -1,10 +1,7 @@
 from vygdb.server import server
 from vygdb.gdb_client import gdb_client
 
-__version__ = "1.0.0"
-
-# kwargs={'cwd':'/home/nate/misc/other/SeeAndStop/build/src/GeometryCore/'},
-# cmd = ['see_and_stop_vis_test', 'testobject.json', 'out.json']
+__version__ = "1.0.1"
 
 def _commandline():
   import argparse, shlex, os, logging
@@ -25,7 +22,7 @@ def _commandline():
     return
 
   static = {}
-  if 'static' in dir(args):
+  if 'static' in dir(args) and args.static:
     for arg in args.static:
       if '=' not in arg:
         logging.error('A (--static -s) directory "{}" failed to be in the form Folder=Path'.format(arg))
