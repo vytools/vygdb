@@ -1,7 +1,6 @@
-from vygdb.server import server
-from vygdb.gdb_client import gdb_client
+import vygdb.server
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 def _commandline():
   import argparse, shlex, os, logging
@@ -11,8 +10,8 @@ def _commandline():
   parser.add_argument('--cmd', type=str, default='', help='program command and args')
   parser.add_argument('--static','-s', metavar='Folder=Path', action = 'append', required=False,
                       help=' Serve local folders to a browser for use with the vygdb rendering'
-                            '(do not put spaces before or after the = sign). '
-                            'If a path contains spaces, you should define '
+                            '(do not put spaces before or after the = sign). If a path contains'
+                            ' spaces, you should define '
                             'it with quotes: (e.g. top="/path to/my top folder".'
                             'In this example a file at "/path to/my top folder/handler.js".'
                             'Would be served to "/top/handler.js".')
@@ -33,4 +32,7 @@ def _commandline():
           logging.error('"{}" is not a valid directory'.format(v))
           return
         static[k] = v
-  server(shlex.split(args.cmd), port=args.port, static=static)
+  server.server(shlex.split(args.cmd), port=args.port, static=static)
+
+if __name__ == '__main__':
+  _commandline()

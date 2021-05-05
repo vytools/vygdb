@@ -70,6 +70,7 @@ const onClose = function(ev) {
   RESTARTBUTTON.classList.add('btn-danger');
   EDITOR.setValue("");
   EDITOR.clearSelection();  
+  CURRENT_FILENAME = null;
   addLogText('Socket closed.');
 }
 

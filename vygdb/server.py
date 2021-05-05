@@ -31,6 +31,8 @@ def newpath(self,p,k,v):
         sendx(self, 'application/json', Path(pp).read_text().encode())
       elif pp.endswith('.js'):
         sendx(self, 'text/javascript', Path(pp).read_text().encode())
+      elif pp.endswith('.css'):
+        sendx(self, 'text/css', Path(pp).read_text().encode())
       return True
   return False
 
@@ -45,12 +47,13 @@ def server(cmd, port=17173, static=None):
         sendx(self, 'text/html', Path(os.path.join(BASEPATH, 'main', 'main.html')).read_text().encode())
       elif self.path == '/start_gdb':
         _restart(['gdb', '--silent', '-x', vygdbpath, '--args']+cmd)
+        self.send_response(200)
+        self.end_headers()
       else:
         for k,v in static.items():
-          if newpath(self,self.path,k,v):
-            return
-      self.send_response(200)
-      self.end_headers()
+          if newpath(self,self.path,k,v): return
+        self.send_response(404)
+        self.end_headers()
 
   print('Serving vygdb on http://localhost:{p}'.format(p=port),flush=True)
   TCPServer.allow_reuse_address = True

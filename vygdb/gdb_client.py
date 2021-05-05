@@ -15,9 +15,8 @@ print([gdb.TYPE_CODE_PTR,  gdb.TYPE_CODE_ARRAY,     gdb.TYPE_CODE_STRUCT,  gdb.T
 import asyncio
 import websockets
 import time, re, json, math, sys, subprocess, os, copy
-global STREAMER, VYGDB, LASTCMD, TOPIC_QUEUE, QUEUE, SENT
+global STREAMER, VYGDB, LASTCMD, TOPIC_QUEUE, QUEUE
 QUEUE = asyncio.Queue(maxsize=2000)
-SENT = False
 TOPIC_QUEUE = {}
 STREAMER = None
 LASTCMD = None
@@ -29,12 +28,14 @@ try:
     def __init__(self, source, action):
       gdb.Breakpoint.__init__(self, source)
       self.source = source
-      self.sent = False
       self.variables = action['variables'] if 'variables' in action else []
       self.topic = action['topic'] if 'topic' in action else None
       self.method = action['method'] if 'method' in action else None
       self.breakstop = action['stop'] if 'stop' in action else False
       self.action = action
+
+    # def msgstop(self):
+    #   send_to_vyclient({'topic':'output','message':'Waiting for client input'})
 
     def stop(self):
 
@@ -43,13 +44,12 @@ try:
         for x in self.action:
           if x not in ['breakpoint', 'variables']:
             reply[x] = self.action[x]
-        sent = send_to_vyclient(reply)
-        self.sent |= sent
-        return sent
+        return send_to_vyclient(reply)
 
       msg = extractvariables(self.variables)
       if msg is None:
-        print('Error at' + self.source,flush=True)
+        print('Error at' + self.source, flush=True)
+        # self.msgstop()
         return True
 
       stop_ = gdb.parse_and_eval(self.breakstop) != False if type(self.breakstop) == str else self.breakstop
@@ -60,10 +60,12 @@ try:
             stop_ = stop_ or stopb
         except Exception as exc:
           print('vygdb.custom_breakpoint error: Problem running method ' + str(self.method) + ' at ' + self.source + '\n', exc,flush=True)
+          # self.msgstop()
           return True
 
       elif msg and self.topic is not None:
         if not send(msg):
+          # self.msgstop()
           return True # Stop if message send failed
 
       elif msg and self.method is None: # No topic or method just print
@@ -73,10 +75,7 @@ try:
       
       if stop_:
         latest_position()
-        return True
-      elif self.sent:
-        global SENT
-        SENT = True
+        # self.msgstop()
         return True
       else:
         return False
@@ -366,6 +365,7 @@ def parse_gdb_command(cmd):
   if cmd is not None:
     try:
       cmd = LASTCMD if len(cmd)==0 and LASTCMD is not None else cmd
+      if cmd.strip() == 'q': print('Quitting...')
       gdb.execute( cmd )
       sys.stdout.flush()
       LASTCMD = cmd
@@ -433,7 +433,7 @@ def gdb_client(port=17172):
       'breakscripts':vyscripts
     }))
 
-    print('waiting for first message from client')
+    print('waiting for first message from client',flush=True)
     async for message in websocket:
       data = json.loads(message)
       if data.get('topic',None) == 'vygdb_actions':
@@ -441,23 +441,15 @@ def gdb_client(port=17172):
         break
 
     async for message in websocket:
+      # if not message.startswith('vtf '):
+      #   await STREAMER.send(json.dumps({'topic':'output','message':'vygdb processing ...'}))
       parse_gdb_command( json.loads(message).get('command',None) )
  
   async def sender():
-    global STREAMER, SENT
+    global STREAMER
     while True:
-      # keys = [k for k in TOPIC_QUEUE.keys()]
-      # for k in keys:
-      #   try:
-      #     await STREAMER.send(json.dumps(TOPIC_QUEUE.pop(k)))
-      #   except Exception as exc:
-      #     pass
-      # await asyncio.sleep(0.05) # Run at 20hz?
       msg = await QUEUE.get()
       await STREAMER.send(json.dumps(msg))
-      if SENT:
-        SENT = False
-        gdb.execute('c')
 
   host = "0.0.0.0"
   print('Creating vygdb websocket on ws://{h}:{p} ...'.format(h=host,p=port), flush=True)

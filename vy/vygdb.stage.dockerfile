@@ -1,5 +1,4 @@
 FROM scratch 
 COPY . .
-
-#VY CONTEXT ..
+#VY CONTEXT ../vygdb
 #VY SOURCE scratch
