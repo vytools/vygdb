@@ -205,6 +205,8 @@ def marshal(variable):
       x = None
     elif vtype.find("const std::map") == 0 or vtype.find("std::map") == 0:
       x = _map(variable)
+    elif vtype.find("const std::unordered_map") == 0 or vtype.find("std::unordered_map") == 0:
+      x = _map(variable)
     elif vtype.find("const std::allocator") == 0 or vtype.find("std::allocator") == 0:
       x = _map(variable)
     elif typ.code == gdb.TYPE_CODE_FLT:
