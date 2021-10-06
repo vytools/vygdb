@@ -2,11 +2,11 @@
   <head>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
     <meta content="utf-8" http-equiv="encoding">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css">
+    <link  href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css" integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.6/ace.js" defer></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/natebu/jsutilities@v0.1.1/flex.css">
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/natebu/jsutilities@v0.1.1/flex.js" defer></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/natebu/jsutilities@v0.1.6/flex.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/natebu/jsutilities@v0.1.6/flex.js" defer></script>
     <style>
       .full { width:100%; height:100% }
       .ace-editor, .ace-editor * {
@@ -23,32 +23,51 @@
   <body>
     <div style="position:absolute;width:100%;height:100%;background-color: whitesmoke;">
       <flex class="h full">
-        <flex class="v full" style="flex: 1;">
-          <flexitem class="full" style="flex: 2;">
+        <flex class="v full" style="flex: 1;min-width: 100px;">
+          <flexitem class="full" style="flex: 2;min-height: 100px;">
             <div id="vygdbeditor" style="width:100%;height:calc(100% - 40px);overflow:auto">
             </div>
             <div class="input-group" style="width:100%;z-index: 0">
-              <div class="input-group-prepend">
-                <button class="btn btn-outline-secondary" onclick="step_into()" title="step-into (F9)"><i class="fa fa-level-down-alt"></i></button>
-                <button class="btn btn-outline-secondary" onclick="step_over()" title="step-over (F10)"><i class="fa fa-angle-right"></i></button>
-                <button class="btn btn-outline-secondary" onclick="step_run()" title="run (F5)"><i class="fa fa-angle-double-right"></i></button>
-              </div>
+              <button class="btn btn-outline-secondary" onclick="step_into()" title="step-into (F9)"><i class="fa fa-level-down-alt"></i></button>
+              <button class="btn btn-outline-secondary" onclick="step_over()" title="step-over (F10)"><i class="fa fa-angle-right"></i></button>
+              <button class="btn btn-outline-secondary" onclick="step_run()" title="run (F5)"><i class="fa fa-angle-double-right"></i></button>
               <input id="vygdbcommand" type="text" class="form-control" style="height:40px;border-radius: 0 !important;"/>
-              <div class="input-group-append">
-                <button class="btn btn-outline-secondary btn-danger restart" onclick="restart()" title="restart"><i class="fa fa-redo"></i></button>
-              </div>
+              <button class="btn btn-outline-secondary btn-info restart" onclick="restart()" title="restart"><i class="fa fa-redo"></i></button>
             </div>
           </flexitem>
           <flexresizer></flexresizer>
-          <flexitem class="full" style="flex: 1;">
-            <div id="vygdblog" class="full"></div>
-            <i style="position:absolute;left:7px;bottom:8px;z-index: 1000;"
-                onclick="LOG.setValue('');"
-                class="logs fa fa-trash fa-inverse"></i>
-          </flexitem>
+          <flex class="h full" style="flex: 1;min-height: 100px;">
+            <flexitem class="full" style="flex: 3;min-width: 100px;">
+              <div id="vygdblog" class="full"></div>
+              <i style="position:absolute;left:7px;bottom:8px;z-index: 1000;"
+                  onclick="LOG.setValue('');"
+                  class="logs fa fa-trash fa-inverse"></i>
+            </flexitem>
+            <flexresizer></flexresizer>
+            <flexitem class="full" style="flex: 1;min-width: 100px;overflow: auto;">
+              <div class="input-group mb-0" title="Select Debugging Program">
+                <select class="form-select program_selector">
+                  <option value=""></option>
+                </select>
+                <button class="btn btn-outline-secondary add_program" title="click to create new program" type="button" disabled><i class="fas fa-plus"></i></button>
+                <button class="btn btn-outline-secondary send_breakpoint_data" title="click to start debugging with this program" type="button"><i class="fas fa-paper-plane"></i></button>
+              </div>
+              <div class="width:100%;height:calc(100% - 30px)">
+                <table id="data_names" class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th scope="col"><i class="fas fa-check-circle"></i> <i class="fas fa-stop-circle"></i> Name</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+            </flexitem>
+          </flex>
         </flex>
         <flexresizer></flexresizer>
-        <flexitem class="full content" style="flex:1">          
+        <flexitem class="full content" style="flex:1;min-width: 100px">
         </flexitem>
       </flex>
     </div>

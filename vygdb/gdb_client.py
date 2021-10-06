@@ -392,17 +392,14 @@ def first_response(data):
   global VYGDB, LASTCMD
   if 'breakpoints' in data:
     for bp in data['breakpoints']:
-      if 'active' in bp and bp['active']:
-        print(json.dumps(bp), flush=True)
-      else:
-        print(json.dumps(bp), flush=True)
+      print(json.dumps(bp), flush=True)
 
   VYGDB['BREAKPOINTS'][:] = data['breakpoints'] if 'breakpoints' in data else []
   vyscripts = data['breakscripts'] if 'breakscripts' in data else []
   marshals_and_methods(vyscripts)
   for action in VYGDB['BREAKPOINTS']:
     action_assignment(action)
-
+  send_to_vyclient({'topic':'vygdb_actions_received'})
   gdb.execute("run")
   LASTCMD = None
   latest_position()

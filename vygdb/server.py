@@ -1,6 +1,6 @@
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
-import os, logging, threading, subprocess
+import os, logging, threading, subprocess, json
 from pathlib import Path
 BASEPATH = os.path.dirname(os.path.realpath(__file__))
 vygdbpath = os.path.join(BASEPATH,'gdb_client.py')
@@ -54,6 +54,17 @@ def server(cmd, port=17173, static=None):
           if newpath(self,self.path,k,v): return
         self.send_response(404)
         self.end_headers()
+
+    def do_POST(self):
+      if 'top' in static and self.path == '/top/vygdb_actions.json':
+        try:
+          x = self.rfile.read(int(self.headers["Content-Length"])).decode('utf-8')
+          x = json.dumps(json.loads(x), sort_keys=True, indent=2)
+          Path(os.path.join(static['top'], 'vygdb_actions.json')).write_text(x)
+        except Exception as exc:
+          print('fail',exc,flush=True)
+      self.send_response(200)
+      self.end_headers()
 
   print('Serving vygdb on http://localhost:{p}'.format(p=port),flush=True)
   TCPServer.allow_reuse_address = True

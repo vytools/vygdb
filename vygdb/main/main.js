@@ -1,6 +1,7 @@
 import { initWebsocket } from "./wsinit.js";
 import { initializer, handler } from "/top/handler.js";
 
+let FONTSIZE = 16;
 let EDITOR = null
 let CURRENT_FILENAME = null;
 let CURRENT_LINE = 0;
@@ -11,12 +12,45 @@ let vygdbdiv = document.querySelector('#vygdbeditor');
 let vygdbcommand = document.querySelector('input#vygdbcommand');
 let vygdblog = document.querySelector('#vygdblog');
 let CONTENTDIV = document.querySelector('flexitem.content');
+const SELECTOR = document.querySelector('select.program_selector');
+const SEND_BUTTON = document.querySelector('button.send_breakpoint_data');
+const ADD_BUTTON = document.querySelector('button.add_program');
 let FILES = {};
+let ACTIONS = {
+  "programs":{
+    "overview":{
+      "stop_names":["finalPlans","main"],
+      "active_names":["safeMap","laneMap","errorPath","partitions","lanes_","lanes","removed"]
+    },
+    "bad_lanes":{
+      "stop_names":["bad_path","bad_map"],
+      "active_names":["safeMap","laneMap","partitions","lanes_","lanes"]
+    }
+  },
+  "active_program":"overview",
+  "comment":{
+    "stop":["lanejoiner","connectpaths","reversalp1","reversalp2"],
+    "active":[]
+  }
+}
+fetch('/top/vygdb_actions.json', { method: 'GET'})
+.then(response => { return response.json(); })
+.then(response => { 
+  ACTIONS = response;
+  ADD_BUTTON.disabled = false;
+})
+.catch(err => { 
+  ACTIONS = {};
+  ADD_BUTTON.disabled = false;
+});
+
+
+
 initializer(CONTENTDIV);
 
 window.LOG = ace.edit(vygdblog);
 LOG.setTheme("ace/theme/twilight");
-LOG.setFontSize(16);
+LOG.setFontSize(FONTSIZE);
 LOG.setReadOnly(true);
 function addLogText(text) {
   LOG.session.insert({row: LOG.session.getLength(), column: 0}, "\n" + text);
@@ -48,6 +82,127 @@ export function vygdb_send(msg) {
   }
 }
 
+const save_vygdb_actions = function() {
+  fetch('/top/vygdb_actions.json', { 
+    method: 'POST',
+    headers: new Headers({ 'Content-Type': 'application/json'}),
+    body: JSON.stringify(ACTIONS)
+  }).catch(err => { console.error(err); });
+}
+
+let BREAKPOINT_DATA = [];
+
+let TABLE = document.querySelector('#data_names');
+
+const null_actv_icon = '<i class="fas nullactv text-secondary fa-circle"></i>';
+const null_stop_icon = '<i class="fas nullstop text-secondary fa-circle"></i>';
+const actv_icon = '<i class="fas actv text-info fa-check-circle"></i>';
+const stop_icon = '<i class="fas stop text-info fa-stop-circle"></i>';
+
+let add_replace_program = function(name) {
+  ACTIONS.programs[name] = {stop_names:[],active_names:[]};
+}
+
+let get_active_program = function() {
+  if (!ACTIONS.hasOwnProperty('programs')) ACTIONS.programs = {};
+  let program_list = Object.keys(ACTIONS.programs);
+  if (program_list.length == 0) {
+    add_replace_program('first_program');
+    program_list = ['first_program'];
+  }
+  if (!ACTIONS.hasOwnProperty('active_program') || !ACTIONS.programs.hasOwnProperty(ACTIONS.active_program)) {
+    ACTIONS.active_program = program_list[0];
+  }
+  return ACTIONS.programs[ACTIONS.active_program];
+}
+
+const removelst = function(stop_or_active, val) {
+  let action = get_active_program();
+  while (true) {
+    var index = action[stop_or_active+'_names'].indexOf(val);
+    if (index != -1) {
+      action[stop_or_active+'_names'].splice(index, 1);
+    } else {
+      break;
+    }
+  }
+}
+const addlst = function(stop_or_active, val) {
+  let action = get_active_program();
+  action[stop_or_active+'_names'].push(val);
+}
+
+TABLE.querySelector('tbody').addEventListener('click',(e) => {
+  if (e.target.tagName == 'I') {
+    let val = e.target.closest('td').dataset['val'];
+    if (e.target.classList.contains('stop')) {            removelst('stop', val);    }
+    else if (e.target.classList.contains('nullstop')) {   addlst('stop', val);       }
+    else if (e.target.classList.contains('actv')) {       removelst('active', val);  }
+    else if (e.target.classList.contains('nullactv')) {   addlst('active', val);     }
+    save_vygdb_actions();
+    redo_tables();
+  }
+});
+
+let load_program = function(name) {
+  ACTIONS.active_program = name;
+  redo_tables();
+}
+
+SELECTOR.addEventListener('change',(e) => { load_program(e.target.value); });
+SEND_BUTTON.addEventListener('click',(e) => {
+  vygdb_send(BREAKPOINT_DATA);
+});
+
+ADD_BUTTON.addEventListener('click',(e) => {
+  let name = prompt('Enter the name of new debug program');
+  get_active_program();
+  if (ACTIONS.programs.hasOwnProperty(name)) {
+    alert('A program with that name already exists');
+  } else if (! /^[a-z0-9_\-]+$/i.test( name ) ) {
+    alert('Name must be alphanumeric (dashes and underscores allowed)');
+  } else {
+    add_replace_program(name);
+    load_program(name);
+  }
+});
+
+let update_status = function(status) {
+  SEND_BUTTON.classList.remove('btn-info');
+  SEND_BUTTON.disabled = status != 'waiting'; // received|waiting|notconnected
+  if (!SEND_BUTTON.disabled) SEND_BUTTON.classList.add('btn-info');
+}
+update_status('notconnected');
+
+const redo_tables = function() {
+  let action = get_active_program();
+  SELECTOR.innerHTML = ''
+  Object.keys(ACTIONS.programs).forEach(p => {
+    SELECTOR.insertAdjacentHTML('beforeend',
+      `<option value="${p}" ${(p==ACTIONS.active_program) ? 'selected' : ''}>${p}</option>`);
+  });
+  let added_list = [];
+  let tbody = TABLE.querySelector('tbody');
+  tbody.innerHTML = '';
+  BREAKPOINT_DATA.breakpoints.forEach(function(bp) {
+    if (bp.name && added_list.indexOf(bp.name) == -1) added_list.push(bp.name);
+    bp.stop = false;
+    bp.active = bp.name && action.active_names.indexOf(bp.name) > -1;
+    if (bp.name && action.stop_names.indexOf(bp.name) > -1) {
+      bp.active = true;
+      bp.stop = true;
+    }
+  });
+
+  added_list.sort().forEach(name => {
+    let isactv = action.active_names.indexOf(name) > -1;
+    let isstop = action.stop_names.indexOf(name) > -1;
+    let i_stop = (isstop) ? stop_icon : null_stop_icon;
+    let i_active = (isstop || isactv) ? actv_icon : null_actv_icon;
+    tbody.insertAdjacentHTML('beforeend',`<tr><td data-val="${name}">${i_active} ${i_stop} ${name}</td></tr>`);
+  })
+}
+
 export function vygdb_recv(msg) {
   let d = JSON.parse(msg.data);
   if (d.hasOwnProperty('topic')) {
@@ -56,10 +211,18 @@ export function vygdb_recv(msg) {
       set_current_file(d.filename, null);
     } else if (d.topic == 'vygdb_current') {
       set_current_file(d.filename, d.hasOwnProperty('line') ? d.line : 0);
+    } else if (d.topic == 'vygdb_actions_received') {
+      update_status('received');
     } else if (d.topic == 'output') {
       addLogText(d.message);
     } else {
-      handler(d.topic, d, vygdb_send, addLogText);
+      if (d.topic == 'vygdb_actions') {
+        update_status('waiting')
+        BREAKPOINT_DATA = d;
+        redo_tables();
+      } else {
+        handler(d.topic, d, vygdb_send, addLogText);
+      }
     }
   }
 }
@@ -67,7 +230,7 @@ export function vygdb_recv(msg) {
 let RESTARTBUTTON = document.querySelector('button.restart');
 
 const onClose = function(ev) {
-  RESTARTBUTTON.classList.add('btn-danger');
+  RESTARTBUTTON.classList.add('btn-info');
   EDITOR.setValue("");
   EDITOR.clearSelection();  
   CURRENT_FILENAME = null;
@@ -85,12 +248,12 @@ const tryconnect = function() {
   LASTTIMEOUT = setTimeout(() => {
     initWebsocket(VYGDBADDR, SOCKET, 500, 1, vygdb_recv, onClose).then(function(socket) { // 500 msec timeout and 1 retry
       SOCKET = socket;
-      RESTARTBUTTON.classList.remove('btn-danger');
+      RESTARTBUTTON.classList.remove('btn-info');
       addLogText('Connected.');
     }).catch(function(err) {
       addLogText('Connection error: '+err);
     });
-  }, 3000);  
+  }, 3000);
 }
 
 vygdbcommand.addEventListener('keydown',function(event) {
@@ -139,7 +302,7 @@ window.restart = () => { fetch('/start_gdb').then(tryconnect); }
 EDITOR = ace.edit(vygdbdiv);
 EDITOR.setTheme("ace/theme/twilight");
 EDITOR.session.setMode("ace/mode/c_cpp");
-EDITOR.setFontSize(16);
+EDITOR.setFontSize(FONTSIZE);
 EDITOR.setReadOnly(true);
 EDITOR.renderer.setShowGutter(true);
 EDITOR.commands.addCommand({
@@ -162,3 +325,16 @@ EDITOR.on("mouseup",function(evt) {
   if (txt.length > 0) vygdb_send({topic:'vygdb',command:'v '+txt});
 });
 EDITOR.setValue('');
+
+
+let ro = new ResizeObserver(entries => {
+  for (let entry of entries) {
+    EDITOR.resize();
+    EDITOR.setFontSize(FONTSIZE-1);
+    EDITOR.setFontSize(FONTSIZE);
+    LOG.resize();
+    LOG.setFontSize(FONTSIZE-1);
+    LOG.setFontSize(FONTSIZE);
+  }
+});
+ro.observe(vygdblog);
