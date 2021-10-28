@@ -16,23 +16,7 @@ const SELECTOR = document.querySelector('select.program_selector');
 const SEND_BUTTON = document.querySelector('button.send_breakpoint_data');
 const ADD_BUTTON = document.querySelector('button.add_program');
 let FILES = {};
-let ACTIONS = {
-  "programs":{
-    "overview":{
-      "stop_names":["finalPlans","main"],
-      "active_names":["safeMap","laneMap","errorPath","partitions","lanes_","lanes","removed"]
-    },
-    "bad_lanes":{
-      "stop_names":["bad_path","bad_map"],
-      "active_names":["safeMap","laneMap","partitions","lanes_","lanes"]
-    }
-  },
-  "active_program":"overview",
-  "comment":{
-    "stop":["lanejoiner","connectpaths","reversalp1","reversalp2"],
-    "active":[]
-  }
-}
+let ACTIONS = {};
 fetch('/top/vygdb_actions.json', { method: 'GET'})
 .then(response => { return response.json(); })
 .then(response => { 
@@ -100,7 +84,7 @@ const actv_icon = '<i class="fas actv text-info fa-check-circle"></i>';
 const stop_icon = '<i class="fas stop text-info fa-stop-circle"></i>';
 
 let add_replace_program = function(name) {
-  ACTIONS.programs[name] = {stop_names:[],active_names:[]};
+  ACTIONS.programs[name] = {stops:{},actives:[]};
 }
 
 let get_active_program = function() {
@@ -118,19 +102,47 @@ let get_active_program = function() {
 
 const removelst = function(stop_or_active, val) {
   let action = get_active_program();
-  while (true) {
-    var index = action[stop_or_active+'_names'].indexOf(val);
-    if (index != -1) {
-      action[stop_or_active+'_names'].splice(index, 1);
-    } else {
-      break;
+  if (stop_or_active ==  'active') {
+    while (true) {
+      var index = action.actives.indexOf(val);
+      if (index != -1) {
+        action.actives.splice(index, 1);
+      } else {
+        break;
+      }
+    }
+  } else {
+    if (action.stops.hasOwnProperty(val)) {
+      if (typeof(action.stops[val]) == "string") {
+        action.stops[val] = 'false && ' + action.stops[val].replace('false && ','');
+      } else {
+        delete action.stops[val];
+      }
     }
   }
 }
 const addlst = function(stop_or_active, val) {
   let action = get_active_program();
-  action[stop_or_active+'_names'].push(val);
+  if (stop_or_active == 'active') {
+    action.actives.push(val);
+  } else {
+    if (action.stops.hasOwnProperty(val) && typeof(action.stops[val]) == 'string') {
+      action.stops[val] = action.stops[val].replace('false && ','');
+    } else {
+      action.stops[val] = true;
+    }
+  }
 }
+    
+TABLE.querySelector('tbody').addEventListener('dblclick',(e) => {
+  if (e.target.tagName == 'TD') {
+    let action = get_active_program();
+    let val = e.target.dataset['val'];
+    action.stops[val] = prompt(`Stop string for breakpoints with name "${val}":`);
+    save_vygdb_actions();
+    redo_tables();
+  }
+})
 
 TABLE.querySelector('tbody').addEventListener('click',(e) => {
   if (e.target.tagName == 'I') {
@@ -187,19 +199,24 @@ const redo_tables = function() {
   BREAKPOINT_DATA.breakpoints.forEach(function(bp) {
     if (bp.name && added_list.indexOf(bp.name) == -1) added_list.push(bp.name);
     bp.stop = false;
-    bp.active = bp.name && action.active_names.indexOf(bp.name) > -1;
-    if (bp.name && action.stop_names.indexOf(bp.name) > -1) {
+    bp.active = bp.name && action.actives.indexOf(bp.name) > -1;
+    if (bp.name && action.stops.hasOwnProperty(bp.name)) {
       bp.active = true;
-      bp.stop = true;
+      bp.stop = action.stops[bp.name];
     }
   });
 
   added_list.sort().forEach(name => {
-    let isactv = action.active_names.indexOf(name) > -1;
-    let isstop = action.stop_names.indexOf(name) > -1;
+    let isactv = action.actives.indexOf(name) > -1;
+    let suffx = ''
+    let isstop = action.stops.hasOwnProperty(name);
+    if (isstop && typeof(action.stops[name]) == 'string') {
+      suffx = '('+action.stops[name]+')';
+      isstop = !action.stops[name].startsWith('false && ');
+    }
     let i_stop = (isstop) ? stop_icon : null_stop_icon;
     let i_active = (isstop || isactv) ? actv_icon : null_actv_icon;
-    tbody.insertAdjacentHTML('beforeend',`<tr><td data-val="${name}">${i_active} ${i_stop} ${name}</td></tr>`);
+    tbody.insertAdjacentHTML('beforeend',`<tr><td data-val="${name}">${i_active} ${i_stop} ${name}${suffx}</td></tr>`);
   })
 }
 

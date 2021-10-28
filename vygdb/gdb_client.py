@@ -55,7 +55,13 @@ try:
       stop_ = gdb.parse_and_eval(self.breakstop) != False if type(self.breakstop) == str else self.breakstop
       if self.method is not None and self.method in VYGDB['METHODS']:
         try:
-          stopb = VYGDB['METHODS'][self.method](msg, {'gdb':gdb, 'marshal':marshal, 'send':send, 'data':VYGDB['DATA']})
+          stopb = VYGDB['METHODS'][self.method](msg, {
+            'gdb':gdb,
+            'marshal':marshal,
+            'send':send,
+            'data':VYGDB['DATA'],
+            'self':self
+          })
           if type(stopb) == bool:
             stop_ = stop_ or stopb
         except Exception as exc:
@@ -63,15 +69,10 @@ try:
           # self.msgstop()
           return True
 
-      elif msg and self.topic is not None:
+      if msg and self.topic is not None:
         if not send(msg):
           # self.msgstop()
           return True # Stop if message send failed
-
-      elif msg and self.method is None: # No topic or method just print
-        for x in msg:
-          print(x+':',json.dumps(msg[x]))
-        sys.stdout.flush()
       
       if stop_:
         latest_position()
@@ -82,12 +83,6 @@ try:
 
 except Exception as exc:
   gdb = None
-
-def activate_breakpoints(topic):
-  for bp in VYGDB['BREAKPOINTS']:
-    if 'label' in action and action['label'] == topic:
-      action['active'] = True
-      action_assignment(action)
 
 class ParseSourceException(Exception):
     pass
@@ -256,19 +251,17 @@ def exit_handler (event):
   gdb.execute("quit "+str(exitflag))
 
 def action_assignment(action):
-  print('PARSING ACTION',action)
   if 'active' not in action:
     action['active'] = False
   if 'source' in action:
     if 'breakpoint' in action and not action['active']:
       action['breakpoint'].delete()
       del action['breakpoint']
-      print('Deactivated breakpoint',action)
     elif 'breakpoint' not in action and action['active']:
       action['breakpoint'] = custom_breakpoint(action['source'],action)
-      print('Activated breakpoint',action)
+    print('vygdb_breakpoint:: ',action)
   else:
-    print('vygdb Action:',action,'must have "source" and "active" ["variables", "topic", and "method" are optional fields]')
+    print('vygdb_breakpoint:: ',action,'must have "source" ["name", "variables", "topic", and "method" are optional fields]')
   sys.stdout.flush()
 
 def marshals_and_methods(textlist):
