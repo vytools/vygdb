@@ -14,13 +14,13 @@ print([gdb.TYPE_CODE_PTR,  gdb.TYPE_CODE_ARRAY,     gdb.TYPE_CODE_STRUCT,  gdb.T
 '''
 import asyncio
 import websockets
-import time, re, json, math, sys, subprocess, os, copy
+import re, json, math, sys, uuid
 global STREAMER, VYGDB, LASTCMD, TOPIC_QUEUE, QUEUE
 QUEUE = asyncio.Queue(maxsize=2000)
 TOPIC_QUEUE = {}
 STREAMER = None
 LASTCMD = None
-VYGDB = {'METHODS':{},'MARSHALS':{},'BREAKPOINTS':[],'DATA':{}}
+VYGDB = {'METHODS':{},'MARSHALS':{},'BREAKPOINTS':{},'DATA':{}}
 
 try:
   import gdb
@@ -28,6 +28,9 @@ try:
     def __init__(self, source, action):
       gdb.Breakpoint.__init__(self, source)
       self.source = source
+      self.set_action(action)
+
+    def set_action(self,action):
       self.variables = action['variables'] if 'variables' in action else []
       self.topic = action['topic'] if 'topic' in action else None
       self.method = action['method'] if 'method' in action else None
@@ -254,12 +257,14 @@ def action_assignment(action):
   if 'active' not in action:
     action['active'] = False
   if 'source' in action:
-    if 'breakpoint' in action and not action['active']:
-      action['breakpoint'].delete()
-      del action['breakpoint']
-    elif 'breakpoint' not in action and action['active']:
+    if 'breakpoint' in action:
+      if not action['active']: # delete
+        action['breakpoint'].delete()
+        del action['breakpoint']
+      else: # update
+        action['breakpoint'].set_action({k:v for k,v in action.items() if k != 'breakpoint'})
+    elif 'breakpoint' not in action and action['active']: # add
       action['breakpoint'] = custom_breakpoint(action['source'],action)
-    print('vygdb_breakpoint:: ',action)
   else:
     print('vygdb_breakpoint:: ',action,'must have "source" ["name", "variables", "topic", and "method" are optional fields]')
   sys.stdout.flush()
@@ -277,13 +282,13 @@ def marshals_and_methods(textlist):
         VYGDB[typ][x] = tempvygdb[typ][x]
 
 def parse_sources(replace_paths=[]):
-  global VYGDB
   sources = gdb.execute("info sources",to_string=True)
   pattern1 = 'Source files for which symbols have been read in:'
   pattern2 = 'Source files for which symbols will be read in on demand:'
   p1s = sources.find(pattern1)
   p2s = sources.find(pattern2)
   vyscripts_filter_breakpoints = []
+  parsed_breakpoints = {}
   if p1s >= 0 and p2s >=0 :
     symbols = sources[p1s+len(pattern1):p2s].strip().split(', ') + sources[p2s+len(pattern2):].strip().split(', ')
     for filename in symbols:
@@ -305,10 +310,10 @@ def parse_sources(replace_paths=[]):
             cmd['source'] = filename.split('/')[-1]+':'+str(lineno+1)
             if 'active' not in cmd:
               cmd['active'] = False # Always default to false
-            for c in VYGDB['BREAKPOINTS']:
+            for c in parsed_breakpoints.values():
               if cmd['source']==c['source']:
-                raise ParseSourceException('Duplicate source breakpoint "'+c['source']+'"')
-            VYGDB['BREAKPOINTS'].append(cmd)
+                raise ParseSourceException('Duplicate source breakpoint "'+c['source']+'"')            
+            parsed_breakpoints[uuid.uuid4().hex] = cmd
           except Exception as exc:
             vyscripts_filter_breakpoints.append(mtch)
             #print('  vygdb.parse_sources: Could not process potential debug point in '+filename+' at line '+str(i)+':\n'+line,exc)
@@ -317,14 +322,21 @@ def parse_sources(replace_paths=[]):
       except Exception as exc:
         print('  vygdb.parse_sources: warning, failed reading of '+filename+':',exc,flush=True)
   print('Done reading sources',flush=True)
-  return vyscripts_filter_breakpoints
+  return vyscripts_filter_breakpoints,parsed_breakpoints
 
 def parse_gdb_command(cmd):
-  global LASTCMD
+  global LASTCMD, VYGDB
   if cmd is None:
     return
   elif type(cmd) is not str:
     print('received in vygdb is not a string',cmd)
+    cmd = None
+  elif cmd.startswith('vb '):
+    bp_update = json.loads(cmd.replace('vb ',''))
+    if 'id' in bp_update and bp_update['id'] in VYGDB['BREAKPOINTS']:
+      bp_current = VYGDB['BREAKPOINTS'][bp_update['id']]
+      bp_current.update(bp_update)
+      action_assignment(bp_current)
     cmd = None
   elif cmd.startswith('vtf '):
     fname = cmd.replace('vtf ','')
@@ -383,14 +395,10 @@ def latest_position():
 
 def first_response(data):
   global VYGDB, LASTCMD
-  if 'breakpoints' in data:
-    for bp in data['breakpoints']:
-      print(json.dumps(bp), flush=True)
-
-  VYGDB['BREAKPOINTS'][:] = data['breakpoints'] if 'breakpoints' in data else []
+  VYGDB['BREAKPOINTS'] = data['breakpoints'] if 'breakpoints' in data else {}
   vyscripts = data['breakscripts'] if 'breakscripts' in data else []
   marshals_and_methods(vyscripts)
-  for action in VYGDB['BREAKPOINTS']:
+  for action in VYGDB['BREAKPOINTS'].values():
     action_assignment(action)
   send_to_vyclient({'topic':'vygdb_actions_received'})
   gdb.execute("run")
@@ -414,14 +422,14 @@ def gdb_client(port=17172):
   gdb.execute("set pagination off")
   gdb.execute("set python print-stack full")
   gdb.execute("set confirm off")
-  vyscripts = parse_sources(replace_paths)
+  vyscripts,breakpoints = parse_sources(replace_paths)
 
   async def streamer(websocket, path):
     global STREAMER
     STREAMER = websocket
     await websocket.send(json.dumps({
       'topic':'vygdb_actions',
-      'breakpoints':VYGDB['BREAKPOINTS'],
+      'breakpoints':breakpoints,
       'breakscripts':vyscripts
     }))
 

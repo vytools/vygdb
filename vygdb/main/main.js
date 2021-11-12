@@ -28,8 +28,6 @@ fetch('/top/vygdb_actions.json', { method: 'GET'})
   ADD_BUTTON.disabled = false;
 });
 
-
-
 initializer(CONTENTDIV);
 
 window.LOG = ace.edit(vygdblog);
@@ -100,6 +98,17 @@ let get_active_program = function() {
   return ACTIONS.programs[ACTIONS.active_program];
 }
 
+const change_breakpoint_status = function(val) {
+  save_vygdb_actions();
+  redo_tables();
+  Object.keys(BREAKPOINT_DATA.breakpoints).forEach(function(key) {
+    let bp = BREAKPOINT_DATA.breakpoints[key];
+    if (bp.name == val) {
+      vygdb_send({topic:'vygdb',command:`vb ${JSON.stringify(bp)}`});
+    }
+  });
+}
+
 const removelst = function(stop_or_active, val) {
   let action = get_active_program();
   if (stop_or_active ==  'active') {
@@ -120,6 +129,7 @@ const removelst = function(stop_or_active, val) {
       }
     }
   }
+  change_breakpoint_status(val);
 }
 const addlst = function(stop_or_active, val) {
   let action = get_active_program();
@@ -132,6 +142,7 @@ const addlst = function(stop_or_active, val) {
       action.stops[val] = true;
     }
   }
+  change_breakpoint_status(val);
 }
     
 TABLE.querySelector('tbody').addEventListener('dblclick',(e) => {
@@ -151,8 +162,6 @@ TABLE.querySelector('tbody').addEventListener('click',(e) => {
     else if (e.target.classList.contains('nullstop')) {   addlst('stop', val);       }
     else if (e.target.classList.contains('actv')) {       removelst('active', val);  }
     else if (e.target.classList.contains('nullactv')) {   addlst('active', val);     }
-    save_vygdb_actions();
-    redo_tables();
   }
 });
 
@@ -196,7 +205,15 @@ const redo_tables = function() {
   let added_list = [];
   let tbody = TABLE.querySelector('tbody');
   tbody.innerHTML = '';
-  BREAKPOINT_DATA.breakpoints.forEach(function(bp) {
+  if (ACTIONS.hasOwnProperty('breakpoints')) {
+    Object.keys(ACTIONS.breakpoints).forEach(key => {
+      BREAKPOINT_DATA.breakpoints[key] = JSON.parse(JSON.stringify(ACTIONS.breakpoints[key]));
+    });
+  }
+
+  Object.keys(BREAKPOINT_DATA.breakpoints).forEach(function(key) {
+    let bp = BREAKPOINT_DATA.breakpoints[key];
+    bp['id'] = key;
     if (bp.name && added_list.indexOf(bp.name) == -1) added_list.push(bp.name);
     bp.stop = false;
     bp.active = bp.name && action.actives.indexOf(bp.name) > -1;
@@ -208,7 +225,7 @@ const redo_tables = function() {
 
   added_list.sort().forEach(name => {
     let isactv = action.actives.indexOf(name) > -1;
-    let suffx = ''
+    let suffx = '';
     let isstop = action.stops.hasOwnProperty(name);
     if (isstop && typeof(action.stops[name]) == 'string') {
       suffx = '('+action.stops[name]+')';
