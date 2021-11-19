@@ -149,7 +149,16 @@ TABLE.querySelector('tbody').addEventListener('dblclick',(e) => {
   if (e.target.tagName == 'TD') {
     let action = get_active_program();
     let val = e.target.dataset['val'];
-    action.stops[val] = prompt(`Stop string for breakpoints with name "${val}":`);
+    let current = action.stops[val];
+    if (current && typeof(current) == 'string') {
+      if (current.startsWith('false && ')) {
+        current = current.replace('false && ','');
+      }
+    } else {
+      current = '';
+    }
+    let rslt = prompt(`Stop string for breakpoints with name "${val}":`,current);
+    action.stops[val] = (rslt.trim() == "") ? true : rslt.trim();
     save_vygdb_actions();
     redo_tables();
   }
@@ -294,12 +303,6 @@ vygdbcommand.addEventListener('keydown',function(event) {
 
   if (event.which === 13 || event.keyCode === 38 || event.keyCode === 40) {
     var val = event.target.value;
-    if (val.startsWith('vt ')) {
-      try {
-        val = 'vt '+JSON.stringify(JSON.parse(val.slice(3)));
-      } catch(err) {}
-    }
-    
     if (event.keyCode === 38 || event.keyCode === 40) {
       if (LOOKBACK === -1) {
         SEARCH_TEXT = val;
@@ -315,8 +318,25 @@ vygdbcommand.addEventListener('keydown',function(event) {
       }
 
     } else {
+      let command = val+'';
+      if (val.startsWith('vt ')) {
+        try {
+          command = 'vt '+JSON.stringify(JSON.parse(val.slice(3)));
+        } catch(err) {}
+      } else if (val.startsWith('vc ')) {
+        let keywords = val.slice(3).trim().split(/\s+/);
+        if (keywords.length > 0 && ACTIONS.commands.hasOwnProperty(keywords[0])) {
+          command = ACTIONS.commands[keywords[0]]+'';
+          for (var ii = 1; ii < keywords.length; ii++) {
+            command = command.replace(new RegExp(`\\$${ii-1}`,'g'),keywords[ii]);
+          }
+        } else {
+          return;
+        }
+      }
+
+      vygdb_send({topic:'vygdb',command:command});
       LOOKBACK = -1;
-      vygdb_send({topic:'vygdb',command:val});
       if (val.trim().length > 0) {
         COMMAND_HISTORY.unshift(val);
         event.target.value = '';
