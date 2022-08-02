@@ -288,6 +288,7 @@ def parse_sources(replace_paths=[]):
   p1s = sources.find(pattern1)
   p2s = sources.find(pattern2)
   vyscripts_filter_breakpoints = []
+  vyjs = []
   parsed_breakpoints = {}
   if p1s >= 0 and p2s >=0 :
     symbols = sources[p1s+len(pattern1):p2s].strip().split(', ') + sources[p2s+len(pattern2):].strip().split(', ')
@@ -295,14 +296,18 @@ def parse_sources(replace_paths=[]):
       for rpath in replace_paths:
         filename = filename.replace(rpath['old'],rpath['new'])
 
-      delimiter = re.compile('(?s)<vygdb(.*?)vygdb>', re.MULTILINE|re.DOTALL)
+      delimiter1 = re.compile('(?s)<vygdb(.*?)vygdb>', re.MULTILINE|re.DOTALL)
+      delimiter2 = re.compile('(?s)<vy_dbg_js(.*?)vy_dbg_js>', re.MULTILINE|re.DOTALL)
       try:
         print('Trying to read vygdb symbols from "'+filename+'"',flush=True)
         with open(filename, 'r', encoding='utf-8') as file:
-          string = file.read() #vyscripts += delimiter.findall(file.read())
-          line = [m.end() for m in re.finditer('.*\n',string)]
+          string = file.read()
 
-        for m in re.finditer(delimiter, string):
+        for m in re.finditer(delimiter2, string):
+          vyjs.append(m.group(1))
+
+        line = [m.end() for m in re.finditer('.*\n',string)]
+        for m in re.finditer(delimiter1, string):
           lineno = next(i for i in range(len(line)) if line[i]>m.start(1))
           mtch = m.group(1)
           try:
@@ -322,7 +327,7 @@ def parse_sources(replace_paths=[]):
       except Exception as exc:
         print('  vygdb.parse_sources: warning, failed reading of '+filename+':',exc,flush=True)
   print('Done reading sources',flush=True)
-  return vyscripts_filter_breakpoints,parsed_breakpoints
+  return vyscripts_filter_breakpoints,vyjs,parsed_breakpoints
 
 def parse_gdb_command(cmd):
   global LASTCMD, VYGDB
@@ -422,7 +427,7 @@ def gdb_client(port=17172):
   gdb.execute("set pagination off")
   gdb.execute("set python print-stack full")
   gdb.execute("set confirm off")
-  vyscripts,breakpoints = parse_sources(replace_paths)
+  vyscripts,vyjs,breakpoints = parse_sources(replace_paths)
 
   async def streamer(websocket, path):
     global STREAMER
@@ -430,7 +435,8 @@ def gdb_client(port=17172):
     await websocket.send(json.dumps({
       'topic':'vygdb_actions',
       'breakpoints':breakpoints,
-      'breakscripts':vyscripts
+      'breakscripts':vyscripts,
+      'js_snippets':vyjs
     }))
 
     print('waiting for first message from client',flush=True)

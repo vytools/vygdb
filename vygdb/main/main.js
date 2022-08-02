@@ -28,7 +28,7 @@ fetch('/top/vygdb_actions.json', { method: 'GET'})
   ADD_BUTTON.disabled = false;
 });
 
-initializer(CONTENTDIV);
+let BREAKPOINT_DATA = [];
 
 window.LOG = ace.edit(vygdblog);
 LOG.setTheme("ace/theme/twilight");
@@ -71,8 +71,6 @@ const save_vygdb_actions = function() {
     body: JSON.stringify(ACTIONS)
   }).catch(err => { console.error(err); });
 }
-
-let BREAKPOINT_DATA = [];
 
 let TABLE = document.querySelector('#data_names');
 
@@ -258,14 +256,16 @@ export function vygdb_recv(msg) {
       update_status('received');
     } else if (d.topic == 'output') {
       addLogText(d.message);
+    } else if (d.topic == 'vygdb_actions') {
+      update_status('waiting')
+      BREAKPOINT_DATA = d;
+      FILES = {}
+      CURRENT_FILENAME = null
+      CONTENTDIV.innerHTML = '';
+      initializer(CONTENTDIV, BREAKPOINT_DATA.js_snippets);
+      redo_tables();
     } else {
-      if (d.topic == 'vygdb_actions') {
-        update_status('waiting')
-        BREAKPOINT_DATA = d;
-        redo_tables();
-      } else {
-        handler(d.topic, d, vygdb_send, addLogText);
-      }
+      handler(d.topic, d, vygdb_send, addLogText);
     }
   }
 }
