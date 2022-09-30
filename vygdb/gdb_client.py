@@ -310,12 +310,15 @@ def parse_sources(replace_paths=[]):
             cmd['source'] = filename.split('/')[-1]+':'+str(lineno+1)
             if 'active' not in cmd:
               cmd['active'] = False # Always default to false
+            duplicate = False
             for c in parsed_breakpoints.values():
-              if cmd['source']==c['source']:
-                raise ParseSourceException('Duplicate source breakpoint "'+c['source']+'"')            
-            parsed_breakpoints[uuid.uuid4().hex] = cmd
+              duplicate = cmd['source']==c['source']
+              if duplicate:
+                print('  vygdb.parse_sources: Warning: Duplicate breakpoint ignored (potentially in header file) {}'.format(cmd))
+                break
+            if not duplicate:
+              parsed_breakpoints[uuid.uuid4().hex] = cmd
           except Exception as exc:
-            print('  vygdb.parse_sources: Could not process potential debug point in '+filename+' at line '+str(i)+':\n If this is meant to be a vyscript we will parse it now:\n'+line,exc,flush=True)
             vyscripts_filter_breakpoints.append(mtch)
 
       except Exception as exc:
