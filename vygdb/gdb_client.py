@@ -320,9 +320,8 @@ def parse_sources(replace_paths=[]):
                 raise ParseSourceException('Duplicate source breakpoint "'+c['source']+'"')            
             parsed_breakpoints[uuid.uuid4().hex] = cmd
           except Exception as exc:
+            print('  vygdb.parse_sources: Could not process potential debug point in '+filename+' at line '+str(i)+':\n If this is meant to be a vyscript we will parse it now:\n'+line,exc,flush=True)
             vyscripts_filter_breakpoints.append(mtch)
-            #print('  vygdb.parse_sources: Could not process potential debug point in '+filename+' at line '+str(i)+':\n'+line,exc)
-            #sys.stdout.flush()
 
       except Exception as exc:
         print('  vygdb.parse_sources: warning, failed reading of '+filename+':',exc,flush=True)
