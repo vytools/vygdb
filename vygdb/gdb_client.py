@@ -295,7 +295,7 @@ def parse_sources(replace_paths=[]):
       for rpath in replace_paths:
         filename = filename.replace(rpath['old'],rpath['new'])
 
-      delimiter = re.compile('(?s)<vygdb(.*?)vygdb>', re.MULTILINE|re.DOTALL)
+      delimiter = re.compile('(?s)<vdbg_bp(.*?)vdbg_bp>', re.MULTILINE|re.DOTALL)
       try:
         print('Trying to read vygdb symbols from "'+filename+'"',flush=True)
         with open(filename, 'r', encoding='utf-8') as file:
@@ -343,7 +343,7 @@ def parse_gdb_command(cmd):
   elif cmd.startswith('vtf '):
     fname = cmd.replace('vtf ','')
     with open(fname, 'r', encoding='utf-8') as cf:
-      send_to_vyclient({'topic':'vygdb_file','filename':fname,'file':cf.read()})
+      send_to_vyclient({'topic':'vdbg_file','filename':fname,'file':cf.read()})
     cmd = None
   elif cmd.startswith('v '):
     try:
@@ -390,7 +390,7 @@ def latest_position():
     x = gdb.newest_frame().find_sal()
     if x is not None and x.is_valid() and x.symtab.is_valid():
       currentfile = x.symtab.filename
-      send_to_vyclient({'topic':'vygdb_current','filename':currentfile,'line':x.line})
+      send_to_vyclient({'topic':'vdbg_current','filename':currentfile,'line':x.line})
   except Exception as exc:
     print('vygdb latest_position error:',exc,flush=True)
   return currentfile
@@ -402,7 +402,7 @@ def first_response(data):
   marshals_and_methods(vyscripts)
   for action in VYGDB['BREAKPOINTS'].values():
     action_assignment(action)
-  send_to_vyclient({'topic':'vygdb_actions_received'})
+  send_to_vyclient({'topic':'vdbg_actions_received'})
   gdb.execute("run")
   LASTCMD = None
   latest_position()
@@ -430,7 +430,7 @@ def gdb_client(port=17172):
     global STREAMER
     STREAMER = websocket
     await websocket.send(json.dumps({
-      'topic':'vygdb_actions',
+      'topic':'vdbg_actions',
       'breakpoints':breakpoints,
       'breakscripts':vyscripts
     }))
@@ -438,7 +438,7 @@ def gdb_client(port=17172):
     print('waiting for first message from client',flush=True)
     async for message in websocket:
       data = json.loads(message)
-      if data.get('topic',None) == 'vygdb_actions':
+      if data.get('topic',None) == 'vdbg_actions':
         first_response(data)
         break
 

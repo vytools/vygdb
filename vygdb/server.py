@@ -56,11 +56,11 @@ def server(cmd, port=17173, static=None):
         self.end_headers()
 
     def do_POST(self):
-      if 'top' in static and self.path == '/top/vygdb_actions.json':
+      if 'top' in static and self.path == '/top/vdbg_actions.json':
         try:
           x = self.rfile.read(int(self.headers["Content-Length"])).decode('utf-8')
           x = json.dumps(json.loads(x), sort_keys=True, indent=2)
-          Path(os.path.join(static['top'], 'vygdb_actions.json')).write_text(x)
+          Path(os.path.join(static['top'], 'vdbg_actions.json')).write_text(x)
         except Exception as exc:
           print('fail',exc,flush=True)
       self.send_response(200)

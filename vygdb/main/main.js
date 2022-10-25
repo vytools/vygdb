@@ -17,7 +17,7 @@ const SEND_BUTTON = document.querySelector('button.send_breakpoint_data');
 const ADD_BUTTON = document.querySelector('button.add_program');
 let FILES = {};
 let ACTIONS = {};
-fetch('/top/vygdb_actions.json', { method: 'GET'})
+fetch('/top/vdbg_actions.json', { method: 'GET'})
 .then(response => { return response.json(); })
 .then(response => { 
   ACTIONS = response;
@@ -46,7 +46,7 @@ const set_current_file = function(fname, line) {
       EDITOR.clearSelection();
       set_current_file(fname, line)
     } else {
-      vygdb_send({topic:'vygdb',command:'vtf '+fname});
+      vygdb_send({topic:'vdbg',command:'vtf '+fname});
       if (line != null && line != undefined) CURRENT_LINE = line;  
     }
   } else {
@@ -64,8 +64,8 @@ export function vygdb_send(msg) {
   }
 }
 
-const save_vygdb_actions = function() {
-  fetch('/top/vygdb_actions.json', { 
+const save_vdbg_actions = function() {
+  fetch('/top/vdbg_actions.json', { 
     method: 'POST',
     headers: new Headers({ 'Content-Type': 'application/json'}),
     body: JSON.stringify(ACTIONS)
@@ -99,12 +99,12 @@ let get_active_program = function() {
 }
 
 const change_breakpoint_status = function(val) {
-  save_vygdb_actions();
+  save_vdbg_actions();
   redo_tables();
   Object.keys(BREAKPOINT_DATA.breakpoints).forEach(function(key) {
     let bp = BREAKPOINT_DATA.breakpoints[key];
     if (bp.name == val) {
-      vygdb_send({topic:'vygdb',command:`vb ${JSON.stringify(bp)}`});
+      vygdb_send({topic:'vdbg',command:`vb ${JSON.stringify(bp)}`});
     }
   });
 }
@@ -159,7 +159,7 @@ TABLE.querySelector('tbody').addEventListener('dblclick',(e) => {
     }
     let rslt = prompt(`Stop string for breakpoints with name "${val}":`,current);
     action.stops[val] = (rslt.trim() == "") ? true : rslt.trim();
-    save_vygdb_actions();
+    save_vdbg_actions();
     redo_tables();
   }
 })
@@ -249,17 +249,17 @@ const redo_tables = function() {
 export function vygdb_recv(msg) {
   let d = JSON.parse(msg.data);
   if (d.hasOwnProperty('topic')) {
-    if (d.topic == 'vygdb_file') {
+    if (d.topic == 'vdbg_file') {
       FILES[d.filename] = d.file;
       set_current_file(d.filename, null);
-    } else if (d.topic == 'vygdb_current') {
+    } else if (d.topic == 'vdbg_current') {
       set_current_file(d.filename, d.hasOwnProperty('line') ? d.line : 0);
-    } else if (d.topic == 'vygdb_actions_received') {
+    } else if (d.topic == 'vdbg_actions_received') {
       update_status('received');
     } else if (d.topic == 'output') {
       addLogText(d.message);
     } else {
-      if (d.topic == 'vygdb_actions') {
+      if (d.topic == 'vdbg_actions') {
         update_status('waiting')
         BREAKPOINT_DATA = d;
         redo_tables();
@@ -335,7 +335,7 @@ vygdbcommand.addEventListener('keydown',function(event) {
         }
       }
 
-      vygdb_send({topic:'vygdb',command:command});
+      vygdb_send({topic:'vdbg',command:command});
       LOOKBACK = -1;
       if (val.trim().length > 0) {
         COMMAND_HISTORY.unshift(val);
@@ -348,9 +348,9 @@ vygdbcommand.addEventListener('keydown',function(event) {
 
 });
 
-window.step_over = () => { vygdb_send({topic:'vygdb',command:'n'}); }
-window.step_into = () => { vygdb_send({topic:'vygdb',command:'s'}); }
-window.step_run = () => { vygdb_send({topic:'vygdb',command:'c'}); }
+window.step_over = () => { vygdb_send({topic:'vdbg',command:'n'}); }
+window.step_into = () => { vygdb_send({topic:'vdbg',command:'s'}); }
+window.step_run = () => { vygdb_send({topic:'vdbg',command:'c'}); }
 window.restart = () => { fetch('/start_gdb').then(tryconnect); }
 
 EDITOR = ace.edit(vygdbdiv);
@@ -376,7 +376,7 @@ EDITOR.commands.addCommand({
 });
 EDITOR.on("mouseup",function(evt) {
   let txt = EDITOR.getSelectedText();
-  if (txt.length > 0) vygdb_send({topic:'vygdb',command:'v '+txt});
+  if (txt.length > 0) vygdb_send({topic:'vdbg',command:'v '+txt});
 });
 EDITOR.setValue('');
 

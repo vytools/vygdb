@@ -1,6 +1,6 @@
 import vygdb.server
 
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 
 def _commandline():
   import argparse, shlex, os, logging
